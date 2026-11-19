@@ -102,6 +102,7 @@ def main():
     visualize.plot_daily_temperature(full, "长沙", days=60)
     visualize.plot_monthly_precipitation(full, months=6)
     visualize.plot_city_comparison(full)
+    visualize.plot_city_duel(full, "长沙", "太原", days=60)
     if not args.no_dashboard:
         visualize.make_dashboard(full)
 

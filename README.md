@@ -1,12 +1,18 @@
 # 天气数据采集与可视化分析系统
 
-[![数据更新](https://img.shields.io/badge/数据更新-2026-11-19-1F4E79)](https://github.com/guiguzi502/weather-collector/actions)  [![记录数](https://img.shields.io/badge/记录数-1080-2E86AB)](https://github.com/guiguzi502/weather-collector)
+[![数据更新](https://img.shields.io/badge/数据更新-2026-11-19-1F4E79)](https://github.com/guiguzi502/weather-collector/actions)  [![记录数](https://img.shields.io/badge/记录数-1170-2E86AB)](https://github.com/guiguzi502/weather-collector)
 
 基于 Open-Meteo 免费开放 API 的端到端数据工程小项目：**采集 → 清洗 → 存储 → 可视化 → 每日自动更新**。
 
 ## 🌤 今日天气总览（每天自动刷新）
 
 ![12城天气总览](docs/weather_card.svg)
+
+## 🖥 双城天气对比（长沙 vs 太原）
+
+![长沙vs太原](docs/city_duel.png)
+
+> 近 60 天：长沙均温 19.5°C / 降水 289mm｜太原均温 11.3°C / 降水 98mm
 
 ## 🖥 交互式可视化报告
 

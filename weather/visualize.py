@@ -90,6 +90,72 @@ def plot_monthly_precipitation(records: list[dict], months: int = 6) -> Path:
     return path
 
 
+def plot_city_duel(records: list[dict], city_a: str, city_b: str, days: int = 60) -> Path:
+    """双城对比：长沙 vs 太原（温度叠加 + 降水 + 温差统计）。"""
+    _ensure_dir()
+    df = pd.DataFrame(records)
+    if df.empty:
+        return OUTPUT_DIR / "city_duel.png"
+    df["date"] = pd.to_datetime(df["date"])
+    a = df[df["city"] == city_a].sort_values("date").tail(days)
+    b = df[df["city"] == city_b].sort_values("date").tail(days)
+    if a.empty or b.empty:
+        logger.warning("双城对比缺数据：%s(%d条) %s(%d条)", city_a, len(a), city_b, len(b))
+        return OUTPUT_DIR / "city_duel.png"
+
+    # 对齐日期
+    common = a["date"].isin(b["date"].values)
+    a, b = a[common], b[b["date"].isin(a["date"].values)]
+
+    fig, axes = plt.subplots(2, 1, figsize=(11, 8), dpi=130,
+                             gridspec_kw={"height_ratios": [2, 1]})
+
+    # 上：日均气温对比 + 温差距
+    ax = axes[0]
+    ax.plot(a["date"], a["temp_avg"], label=city_a, color=CHART_STYLE["warm"], linewidth=2)
+    ax.plot(b["date"], b["temp_avg"], label=city_b, color=CHART_STYLE["primary"], linewidth=2)
+    a_avg = a["temp_avg"].to_numpy()
+    b_avg = b["temp_avg"].to_numpy()
+    dates = a["date"].to_numpy()
+    ax.fill_between(dates, a_avg, b_avg,
+                    where=a_avg >= b_avg,
+                    color=CHART_STYLE["warm"], alpha=0.12, label=f"{city_a} 更暖")
+    ax.fill_between(dates, a_avg, b_avg,
+                    where=a_avg < b_avg,
+                    color=CHART_STYLE["primary"], alpha=0.12, label=f"{city_b} 更暖")
+    ax.set_title(f"{city_a} vs {city_b} · 近 {len(a)} 天日均气温对比", fontsize=14, pad=12)
+    ax.set_ylabel("日均气温（℃）")
+    ax.grid(alpha=0.3, linestyle="--")
+    ax.legend(loc="upper left", framealpha=0.9)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+
+    # 下：两城降水对比（分日柱状）
+    ax2 = axes[1]
+    width = pd.Timedelta(hours=9)
+    ax2.bar(a["date"], a["precip"], width=width, color=CHART_STYLE["warm"],
+            alpha=0.85, label=city_a)
+    ax2.bar(b["date"], b["precip"], width=width, color=CHART_STYLE["primary"],
+            alpha=0.85, label=city_b)
+    ax2.set_title("每日降水量对比（mm）", fontsize=11, pad=8)
+    ax2.set_ylabel("降水量（mm）")
+    ax2.grid(axis="y", alpha=0.3, linestyle="--")
+    ax2.legend(loc="upper right", framealpha=0.9)
+    ax2.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+
+    fig.tight_layout()
+    path = OUTPUT_DIR / "city_duel.png"
+    fig.savefig(path)
+    plt.close(fig)
+    logger.info("双城对比图已生成：%s", path)
+
+    # 温差统计（控制台 + 返回路径）
+    diff = (a["temp_avg"] - b["temp_avg"]).dropna()
+    if len(diff):
+        logger.info(
+            "%s 平均比 %s %+.1f℃（近 %d 天）", city_a, city_b, diff.mean(), len(diff))
+    return path
+
+
 def plot_city_comparison(records: list[dict]) -> Path:
     """各城市近 30 天平均气温对比（横向条形图）。"""
     _ensure_dir()
