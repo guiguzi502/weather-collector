@@ -171,6 +171,87 @@ def _write_native_svg(today: pd.DataFrame, latest: str,
     return path
 
 
+# ------------------------------------------------------ 双城穿衣对比卡
+def make_duel_dressing_card(records: list[dict],
+                            city_a: str = "长沙",
+                            city_b: str = "太原") -> Path:
+    """生成长沙 vs 太原 双城穿衣对比 SVG 卡（并排、加粗胜负对比）。"""
+    _ensure_dir()
+    df = pd.DataFrame(records)
+    if df.empty:
+        logger.warning("无数据，跳过双城穿衣卡")
+        return OUTPUT_DIR / "duel_dressing.svg"
+
+    df["date"] = df["date"].astype(str)
+    latest = df["date"].max()
+    prev = sorted(df["date"].unique())[-2] if df["date"].nunique() >= 2 else None
+    today = df[df["date"] == latest]
+    yesterday = df[df["date"] == prev].set_index("city")["temp_avg"] if prev else None
+
+    def city_block(city: str, x: int) -> str:
+        row = today[today["city"] == city]
+        if row.empty:
+            return (f'<text x="{x}" y="92" font-size="16" font-weight="700" fill="#454D5C">{city}</text>'
+                    f'<text x="{x}" y="120" font-size="13" fill="#A0A8B4">暂无数据</text>')
+        r = row.iloc[0]
+        t = r["temp_avg"] if pd.notna(r["temp_avg"]) else None
+        p = float(r["precip"]) if pd.notna(r["precip"]) else 0.0
+        color = _temp_color(t)
+        # 温差箭头
+        yt = yesterday.get(city) if yesterday is not None else None
+        if yt is not None and pd.notna(yt) and t is not None:
+            arrow, acolor = _trend_arrow(t, float(yt))
+        else:
+            arrow, acolor = "—", "#C0C8D4"
+        advice = dressing_advice(t, p) + dressing_suffix(p)
+        lines = [
+            f'<text x="{x}" y="96" font-size="20" font-weight="800" fill="{color}">{t:.1f}°C</text>'
+            f'<text x="{x + 92}" y="96" font-size="14" font-weight="700" fill="{acolor}">{arrow}</text>',
+            f'<text x="{x}" y="122" font-size="13" fill="#8A94A6">降水 {p:.1f}mm</text>',
+            f'<text x="{x}" y="152" font-size="14" font-weight="700" fill="#282E3A">今日穿搭</text>',
+            f'<text x="{x}" y="176" font-size="13" fill="#454D5C">👕 {advice}</text>',
+        ]
+        return "\n".join(lines)
+
+    left = city_block(city_a, 40)
+    right = city_block(city_b, 400)
+
+    # 温差总结（热 VS 冷）
+    ta = today[today["city"] == city_a]["temp_avg"]
+    tb = today[today["city"] == city_b]["temp_avg"]
+    summary = ""
+    if not ta.empty and not tb.empty and pd.notna(ta.iloc[0]) and pd.notna(tb.iloc[0]):
+        diff = float(ta.iloc[0]) - float(tb.iloc[0])
+        if diff > 0:
+            summary = f"今日 {city_a} 比 {city_b} 暖 {diff:.1f}°C 🧣"
+        elif diff < 0:
+            summary = f"今日 {city_b} 比 {city_a} 暖 {abs(diff):.1f}°C 🧣"
+        else:
+            summary = f"今日两城同温 {float(ta.iloc[0]):.1f}°C"
+    summary_line = (f'<text x="40" y="232" font-size="14" font-weight="700" '
+                    f'fill="#1F4E79">{summary}</text>' if summary else "")
+
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="760" height="268" viewBox="0 0 760 268">
+  <rect width="760" height="268" rx="12" fill="#FFFFFF" stroke="#E4E8EE" stroke-width="1.5"/>
+  <text x="40" y="36" font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="18" font-weight="700" fill="#1F4E79">🥋 双城今日穿搭对比</text>
+  <text x="40" y="60" font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#8A94A6">数据日期：{latest} · 每日 08:00 自动更新 · 数据源 Open-Meteo</text>
+  <line x1="380" y1="78" x2="380" y2="210" stroke="#E4E8EE" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <text x="40" y="88" font-size="14" font-weight="700" fill="#1F4E79">{city_a} 🌶</text>
+  <text x="400" y="88" font-size="14" font-weight="700" fill="#1F4E79">{city_b} 🧣</text>
+  {left}
+  {right}
+  {summary_line}
+</svg>'''
+    path = OUTPUT_DIR / "duel_dressing.svg"
+    path.write_text(svg, encoding="utf-8")
+    # 同步 docs/
+    docs = Path("docs")
+    docs.mkdir(exist_ok=True)
+    (docs / "duel_dressing.svg").write_bytes(path.read_bytes())
+    logger.info("双城穿衣对比卡已生成：%s", path)
+    return path
+
+
 # ------------------------------------------------------------ ECharts HTML
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="zh-CN">

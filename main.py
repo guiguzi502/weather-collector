@@ -108,6 +108,7 @@ def main():
 
     # 生成可视化报告（SVG 卡片 + ECharts 交互式 HTML）
     report.make_svg_card(full)
+    report.make_duel_dressing_card(full, "长沙", "太原")
     report.make_html_report(full)
     update_readme_badge(full, db.summary())
 

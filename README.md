@@ -10,6 +10,8 @@
 
 ## 🖥 双城天气对比（长沙 vs 太原）
 
+![双城今日穿搭](docs/duel_dressing.svg)
+
 ![长沙vs太原](docs/city_duel.png)
 
 > 近 60 天：长沙均温 19.5°C / 降水 289mm｜太原均温 11.3°C / 降水 98mm
