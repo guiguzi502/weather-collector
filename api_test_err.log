@@ -1,0 +1,6 @@
+02:30:40 [INFO] 天气 API 服务已启动：http://127.0.0.1:8765
+02:30:40 [INFO] 接口文档：http://127.0.0.1:8765/
+02:30:43 [INFO] 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+02:30:54 [INFO] 127.0.0.1 - "GET /api/weather/%E9%95%BF%E6%B2%99?days=3 HTTP/1.1" 200 -
+02:30:54 [INFO] 127.0.0.1 - "GET /api/cities HTTP/1.1" 200 -
+02:30:54 [INFO] 127.0.0.1 - "GET /api/weather/%E4%B8%8D%E5%AD%98%E5%9C%A8 HTTP/1.1" 404 -

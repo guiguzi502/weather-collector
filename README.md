@@ -45,17 +45,32 @@ python main.py --days 1
 python main.py --cities 长沙,北京
 ```
 
+## 🔌 天气数据 API
+
+内置零依赖 API 服务（标准库实现，无需 Flask），把 SQLite 数据暴露为 JSON 接口：
+
+```bash
+python api_server.py                      # 启动，默认 127.0.0.1:8000
+curl "http://127.0.0.1:8000/api/weather/长沙?days=7"   # 查询长沙近 7 天
+curl "http://127.0.0.1:8000/api/cities"               # 城市列表
+curl "http://127.0.0.1:8000/"                         # 接口文档页
+```
+
+支持 CORS，可直接被浏览器页面调用；接口带自动文档页。
+
 ## 项目结构
 
 ```
 weather-collector/
 ├── main.py                 # 入口：调度 采集→清洗→存储→可视化
 ├── config.py               # 城市列表、可视化配置
+├── api_server.py           # 零依赖 REST API 服务（标准库）
 ├── weather/
 │   ├── collector.py        # Open-Meteo API 采集（含重试/日志）
 │   ├── cleaner.py          # 数据清洗（缺失值/异常值）
 │   ├── storage.py          # SQLite 存取，自动去重
-│   └── visualize.py        # Matplotlib 图表生成
+│   ├── visualize.py        # Matplotlib 图表生成
+│   └── report.py           # SVG 天气卡 / 双城穿搭卡 / ECharts 报告
 ├── data/                   # SQLite 数据库（自动生成）
 ├── output/                 # 图表输出（自动生成）
 └── .github/workflows/daily.yml  # 每日 08:00 自动运行
