@@ -18,4 +18,4 @@ venv/
 
 # 系统
 .DS_Store
-Thumbs.db
+Thumbs.dbapi_server.py
