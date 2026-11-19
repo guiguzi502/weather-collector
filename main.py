@@ -74,6 +74,47 @@ def update_readme_badge(records: list, summary: dict) -> None:
     logger.info("README 徽章已更新：%s / %s 条", latest, total)
 
 
+def update_duel_stats(records: list, city_a: str = "长沙",
+                      city_b: str = "太原", days: int = 60) -> None:
+    """更新 README 双城对比统计行（自动计算，不再手写死）。"""
+    readme = Path("README.md")
+    if not readme.exists():
+        logger.warning("README.md 不存在，跳过双城统计更新")
+        return
+
+    df = pd.DataFrame(records)
+    if df.empty:
+        return
+    df["date"] = pd.to_datetime(df["date"])
+    cutoff = df["date"].max() - pd.Timedelta(days=days - 1)
+    recent = df[df["date"] >= cutoff]
+
+    def stats(city: str) -> str:
+        sub = recent[recent["city"] == city]
+        if sub.empty:
+            return "无数据"
+        avg = sub["temp_avg"].mean()
+        rain = sub["precip"].sum()
+        return f"{avg:.1f}°C / 降水 {rain:.0f}mm"
+
+    a, b = stats(city_a), stats(city_b)
+    line = f"> 近 {days} 天：{city_a}均温 {a}｜{city_b}均温 {b}"
+
+    text = readme.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    replaced = False
+    for i, ln in enumerate(lines):
+        if ln.startswith("> 近") and "均温" in ln:
+            lines[i] = line
+            replaced = True
+            break
+    if not replaced:
+        lines.append("")
+        lines.append(line)
+    readme.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    logger.info("README 双城统计已更新：%s", line)
+
+
 def main():
     args = parse_args()
     # archive API 只提供已归档数据：终点用"昨天"，避免请求到未归档日期
@@ -111,6 +152,7 @@ def main():
     report.make_duel_dressing_card(full, "长沙", "太原")
     report.make_html_report(full)
     update_readme_badge(full, db.summary())
+    update_duel_stats(full, "长沙", "太原", days=60)
 
     db.close()
 
