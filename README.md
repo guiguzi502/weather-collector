@@ -68,6 +68,12 @@ weather-collector/
 - **增量更新**：按 (city, date) 去重，重复采集不产生脏数据
 - **无人值守**：配合 GitHub Actions 实现每日自动采集与图表更新
 
+## 🌟 支持一下
+
+如果这个项目对你有帮助，欢迎点个 **Star** ⭐ —— 每到一个里程碑都会自动记录下来：
+
+📈 [Star 里程碑记录](docs/star_milestones.md)
+
 ## 数据来源
 
 [Open-Meteo](https://open-meteo.com/) 提供免费、无需 Key 的历史与实时气象数据，数据来自官方气象机构。
