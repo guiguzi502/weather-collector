@@ -18,4 +18,9 @@ venv/
 
 # 系统
 .DS_Store
-Thumbs.dbapi_server.py
+Thumbs.db
+
+# 日志
+*.log
+api_test_out.log
+api_test_err.log
