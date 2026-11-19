@@ -53,7 +53,9 @@ def update_readme_badge(records: list, summary: dict) -> None:
         f"[![数据更新](https://img.shields.io/badge/数据更新-{latest}-1F4E79)]"
         f"(https://github.com/guiguzi502/weather-collector/actions)  "
         f"[![记录数](https://img.shields.io/badge/记录数-{total}-2E86AB)]"
-        f"(https://github.com/guiguzi502/weather-collector)"
+        f"(https://github.com/guiguzi502/weather-collector)  "
+        f"[![CI](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml/badge.svg)]"
+        f"(https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml)"
     )
 
     text = readme.read_text(encoding="utf-8")
