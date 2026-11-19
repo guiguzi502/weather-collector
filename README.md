@@ -1,6 +1,16 @@
 # 天气数据采集与可视化分析系统
 
+[![数据更新](https://img.shields.io/badge/数据更新-2026-11-19-1F4E79)](https://github.com/guiguzi502/weather-collector/actions)  [![记录数](https://img.shields.io/badge/记录数-1080-2E86AB)](https://github.com/guiguzi502/weather-collector)
+
 基于 Open-Meteo 免费开放 API 的端到端数据工程小项目：**采集 → 清洗 → 存储 → 可视化 → 每日自动更新**。
+
+## 🌤 今日天气总览（每天自动刷新）
+
+![12城天气总览](docs/weather_card.svg)
+
+## 🖥 交互式可视化报告
+
+打开 [weather_report.html](output/weather_report.html) 查看可交互图表（ECharts：趋势/柱状/热力图，支持 hover、缩放、切换）。
 
 ![仪表盘示例](docs/dashboard.png)
 

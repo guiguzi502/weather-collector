@@ -10,11 +10,12 @@
 import argparse
 import logging
 from datetime import date, timedelta
+from pathlib import Path
 
 import pandas as pd
 
 from config import CITIES
-from weather import collector, cleaner, storage, visualize
+from weather import collector, cleaner, storage, visualize, report
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,6 +32,46 @@ def parse_args():
                    help="城市列表，逗号分隔；默认全部 12 城")
     p.add_argument("--no-dashboard", action="store_true", help="跳过仪表盘生成")
     return p.parse_args()
+
+
+def update_readme_badge(records: list, summary: dict) -> None:
+    """更新 README 顶部徽章：显示数据更新日期与总记录数。
+
+    替换 README 中形如 ``[![...](...)]`` 的徽章行；不存在则插入标题下方。
+    徽章使用 shields.io 动态端点，无需额外服务。
+    """
+    readme = Path("README.md")
+    if not readme.exists():
+        logger.warning("README.md 不存在，跳过徽章更新")
+        return
+
+    df = pd.DataFrame(records)
+    latest = str(df["date"].max())[:10] if not df.empty else "—"
+    total = summary.get("total", 0)
+
+    badge_line = (
+        f"[![数据更新](https://img.shields.io/badge/数据更新-{latest}-1F4E79)]"
+        f"(https://github.com/guiguzi502/weather-collector/actions)  "
+        f"[![记录数](https://img.shields.io/badge/记录数-{total}-2E86AB)]"
+        f"(https://github.com/guiguzi502/weather-collector)"
+    )
+
+    text = readme.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    # 找到已存在的徽章行（含 img.shields.io/badge）替换
+    for i, line in enumerate(lines):
+        if "img.shields.io/badge" in line:
+            lines[i] = badge_line
+            break
+    else:
+        # 找不到：插到第一个标题后
+        for i, line in enumerate(lines):
+            if line.startswith("#"):
+                lines.insert(i + 1, "")
+                lines.insert(i + 2, badge_line)
+                break
+    readme.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    logger.info("README 徽章已更新：%s / %s 条", latest, total)
 
 
 def main():
@@ -63,6 +104,11 @@ def main():
     visualize.plot_city_comparison(full)
     if not args.no_dashboard:
         visualize.make_dashboard(full)
+
+    # 生成可视化报告（SVG 卡片 + ECharts 交互式 HTML）
+    report.make_svg_card(full)
+    report.make_html_report(full)
+    update_readme_badge(full, db.summary())
 
     db.close()
 
