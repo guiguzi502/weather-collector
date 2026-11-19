@@ -29,40 +29,140 @@ def _temp_color(t: float) -> str:
     return "#E05E2B"
 
 
+def _trend_arrow(today: float, yesterday: float | None) -> tuple[str, str]:
+    """对比昨日气温，返回 (箭头文本, 颜色)。▼/▲ 已表方向，数值取绝对值。"""
+    if yesterday is None:
+        return "—", "#C0C8D4"
+    diff = today - yesterday
+    if diff >= 0.5:
+        return f"▲{diff:+.1f}", "#E05E2B"
+    if diff <= -0.5:
+        return f"▼{abs(diff):.1f}", "#3B82C4"
+    return f"▸{abs(diff):.1f}", "#9AA5B1"
+
+
+def dressing_advice(temp: float, precip: float) -> str:
+    """根据气温与降水生成穿衣建议。"""
+    if temp is None:
+        return "数据缺失，出门看天"
+    if temp >= 30:
+        return "短袖短裤，注意防晒"
+    if temp >= 26:
+        return "短袖，空调房备薄外套"
+    if temp >= 22:
+        return "短袖或薄长袖"
+    if temp >= 17:
+        return "长袖T恤 + 薄外套"
+    if temp >= 12:
+        return "卫衣 / 毛衣 + 外套"
+    if temp >= 7:
+        return "厚外套 + 毛衣"
+    if temp >= 2:
+        return "羽绒服 + 保暖内衣"
+    return "厚羽绒服，帽子围巾手套"
+
+
+def dressing_suffix(precip: float) -> str:
+    """降水附加建议。"""
+    if precip >= 10:
+        return "，带伞！雨不小"
+    if precip >= 1:
+        return "，记得带伞"
+    return ""
+
+
 def make_svg_card(records: list[dict]) -> Path:
-    """生成 12 城今日天气总览 SVG 卡片（宽 720，GitHub 原生渲染）。"""
+    """生成 12 城今日天气总览 SVG 卡片（温差箭头 + 穿衣建议 + 趣味榜单）。"""
     _ensure_dir()
     df = pd.DataFrame(records)
     if df.empty:
         logger.warning("无数据，跳过 SVG 卡片")
         return OUTPUT_DIR / "weather_card.svg"
 
+    df["date"] = df["date"].astype(str)
     latest = df["date"].max()
+    prev = sorted(df["date"].unique())[-2] if df["date"].nunique() >= 2 else None
     today = df[df["date"] == latest].sort_values("city")
-    return _write_native_svg(today, latest)
+    yesterday = df[df["date"] == prev].set_index("city")["temp_avg"] if prev else None
 
-def _write_native_svg(today: pd.DataFrame, latest: str) -> Path:
+    path = _write_native_svg(today, latest, yesterday)
+    # 同步一份到 docs/（README 引用路径）
+    docs = Path("docs")
+    docs.mkdir(exist_ok=True)
+    (docs / "weather_card.svg").write_bytes(path.read_bytes())
+    return path
+
+
+def _fun_facts(today: pd.DataFrame) -> list[str]:
+    """生成趣味榜单：最热 / 最冷 / 降水最多。"""
+    facts = []
+    if today.empty:
+        return facts
+    valid = today[today["temp_avg"].notna()]
+    if not valid.empty:
+        hot = valid.loc[valid["temp_avg"].idxmax()]
+        cold = valid.loc[valid["temp_avg"].idxmin()]
+        facts.append(f"🔥 今日最热：{hot['city']} {hot['temp_avg']:.1f}°C")
+        facts.append(f"🧊 今日最冷：{cold['city']} {cold['temp_avg']:.1f}°C")
+    rain = today[today["precip"].notna()]
+    if not rain.empty:
+        wettest = rain.loc[rain["precip"].idxmax()]
+        facts.append(f"🌧 降水最多：{wettest['city']} {wettest['precip']:.1f}mm")
+    return facts
+
+
+def _write_native_svg(today: pd.DataFrame, latest: str,
+                      yesterday: pd.Series | None = None) -> Path:
     """用原生 SVG 元素绘制（兼容 GitHub 渲染器）。"""
     y = 78
     parts = []
     for _, r in today.iterrows():
         t = r["temp_avg"] if pd.notna(r["temp_avg"]) else None
         color = _temp_color(t)
-        bar_w = max(8, min(420, (t + 15) * 9)) if t is not None else 8
-        parts.append(
-            f'<text x="24" y="{y + 12}" font-size="13" font-weight="600" fill="#282E3A">{r["city"]}</text>'
-            f'<rect x="76" y="{y}" width="420" height="14" rx="7" fill="#EFF2F6"/>'
-            f'<rect x="76" y="{y}" width="{bar_w:.0f}" height="14" rx="7" fill="{color}"/>'
-            f'<text x="508" y="{y + 12}" font-size="13" font-weight="700" fill="{color}">{t:.1f}°C</text>'
-            f'<text x="566" y="{y + 12}" font-size="12" fill="#8A94A6">降水 {r["precip"]:.1f}mm</text>'
-        )
-        y += 34
+        bar_w = max(8, min(350, (t + 15) * 7.5)) if t is not None else 8
 
-    height = y + 30
-    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="720" height="{height}" viewBox="0 0 720 {height}">
-  <rect width="720" height="{height}" rx="12" fill="#FFFFFF" stroke="#E4E8EE" stroke-width="1.5"/>
-  <text x="24" y="34" font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="18" font-weight="700" fill="#1F4E79">🌤 12 城天气总览</text>
-  <text x="24" y="58" font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#8A94A6">数据日期：{latest} · 每日 08:00 自动更新 · 数据源 Open-Meteo</text>
+        # 温差箭头
+        yt = yesterday.get(r["city"]) if yesterday is not None else None
+        if yt is not None and pd.notna(yt) and t is not None:
+            arrow, acolor = _trend_arrow(t, float(yt))
+        else:
+            arrow, acolor = "—", "#C0C8D4"
+
+        # 穿衣建议
+        advice = dressing_advice(t, float(r["precip"]) if pd.notna(r["precip"]) else 0)
+        advice += dressing_suffix(float(r["precip"]) if pd.notna(r["precip"]) else 0)
+
+        parts.append(
+            f'<text x="20" y="{y + 12}" font-size="13" font-weight="600" fill="#282E3A">{r["city"]}</text>'
+            f'<rect x="82" y="{y}" width="350" height="14" rx="7" fill="#EFF2F6"/>'
+            f'<rect x="82" y="{y}" width="{bar_w:.0f}" height="14" rx="7" fill="{color}"/>'
+            f'<text x="442" y="{y + 12}" font-size="13" font-weight="700" fill="{color}">{t:.1f}°C</text>'
+            f'<text x="512" y="{y + 12}" font-size="12" font-weight="600" fill="{acolor}">{arrow}</text>'
+            f'<text x="566" y="{y + 12}" font-size="12" fill="#8A94A6">降水 {r["precip"]:.1f}mm</text>'
+            f'<text x="20" y="{y + 30}" font-size="11" fill="#A0A8B4">👕 {advice}</text>'
+        )
+        y += 52
+
+    # 趣味榜单
+    facts = _fun_facts(today)
+    if facts:
+        y += 6
+        parts.append(
+            f'<line x1="20" y1="{y - 10}" x2="740" y2="{y - 10}" stroke="#E4E8EE" stroke-width="1"/>'
+            f'<text x="20" y="{y + 8}" font-size="13" font-weight="700" fill="#1F4E79">今日趣味榜单</text>'
+        )
+        y += 26
+        for fact in facts:
+            parts.append(
+                f'<text x="20" y="{y}" font-size="12" fill="#454D5C">{fact}</text>'
+            )
+            y += 22
+
+    height = y + 24
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="760" height="{height}" viewBox="0 0 760 {height}">
+  <rect width="760" height="{height}" rx="12" fill="#FFFFFF" stroke="#E4E8EE" stroke-width="1.5"/>
+  <text x="20" y="34" font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="18" font-weight="700" fill="#1F4E79">🌤 12 城天气总览</text>
+  <text x="20" y="58" font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#8A94A6">数据日期：{latest} · 每日 08:00 自动更新 · 数据源 Open-Meteo · ▲/▼ 较昨日温差</text>
   {''.join(parts)}
 </svg>'''
     path = OUTPUT_DIR / "weather_card.svg"
