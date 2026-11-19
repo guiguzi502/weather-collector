@@ -1,0 +1,21 @@
+# 数据库与数据文件
+data/
+*.db
+*.sqlite3
+
+# 图表输出
+output/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 编辑器
+.vscode/
+.idea/
+
+# 系统
+.DS_Store
+Thumbs.db

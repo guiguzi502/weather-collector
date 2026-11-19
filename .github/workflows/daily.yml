@@ -1,0 +1,33 @@
+name: Daily Weather Collect
+
+on:
+  schedule:
+    - cron: "0 0 * * *"   # 每天 08:00（北京时间）
+  workflow_dispatch:      # 支持手动触发
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Collect & visualize
+        run: python main.py --days 1
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f data/ output/   # 强制添加被 .gitignore 忽略的运行时产物
+          git diff --cached --quiet || git commit -m "chore: daily weather update $(date +%F)"
+          git push

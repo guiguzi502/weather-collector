@@ -1,0 +1,59 @@
+# 天气数据采集与可视化分析系统
+
+基于 Open-Meteo 免费开放 API 的端到端数据工程小项目：**采集 → 清洗 → 存储 → 可视化 → 每日自动更新**。
+
+![仪表盘示例](docs/dashboard.png)
+
+## 功能
+
+- **数据采集**：每日定时抓取 12 个中国城市的气温、湿度、降水量等指标（Open-Meteo API，无需 API Key）
+- **数据清洗**：缺失值填充、异常值剔除、格式统一
+- **数据存储**：SQLite 持久化，支持按城市/日期查询，自动去重
+- **可视化分析**：日均气温趋势折线图、近 6 月降水量柱状图、城市温度对比
+- **每日自动更新**：GitHub Actions 定时任务，数据落地后自动提交图表
+
+## 快速开始
+
+```bash
+pip install -r requirements.txt
+
+# 采集最近 90 天数据并生成图表
+python main.py
+
+# 只采集当天数据（增量）
+python main.py --days 1
+
+# 指定城市
+python main.py --cities 长沙,北京
+```
+
+## 项目结构
+
+```
+weather-collector/
+├── main.py                 # 入口：调度 采集→清洗→存储→可视化
+├── config.py               # 城市列表、可视化配置
+├── weather/
+│   ├── collector.py        # Open-Meteo API 采集（含重试/日志）
+│   ├── cleaner.py          # 数据清洗（缺失值/异常值）
+│   ├── storage.py          # SQLite 存取，自动去重
+│   └── visualize.py        # Matplotlib 图表生成
+├── data/                   # SQLite 数据库（自动生成）
+├── output/                 # 图表输出（自动生成）
+└── .github/workflows/daily.yml  # 每日 08:00 自动运行
+```
+
+## 核心设计
+
+- **容错重试**：接口异常自动重试 3 次，指数退避，失败记录日志
+- **统一 Schema**：多城市数据通过统一的记录结构入库，字段标准化
+- **增量更新**：按 (city, date) 去重，重复采集不产生脏数据
+- **无人值守**：配合 GitHub Actions 实现每日自动采集与图表更新
+
+## 数据来源
+
+[Open-Meteo](https://open-meteo.com/) 提供免费、无需 Key 的历史与实时气象数据，数据来自官方气象机构。
+
+## License
+
+MIT
