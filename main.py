@@ -15,7 +15,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import CITIES
-from weather import collector, cleaner, storage, visualize, report, annual
+from weather import collector, cleaner, storage, visualize, report, annual, map_view
 
 logging.basicConfig(
     level=logging.INFO,
@@ -154,6 +154,7 @@ def main():
     report.make_duel_dressing_card(full, "长沙", "太原")
     report.make_html_report(full)
     annual.make_annual_report(full)
+    map_view.make_weather_map(full)
     update_readme_badge(full, db.summary())
     update_duel_stats(full, "长沙", "太原", days=60)
 

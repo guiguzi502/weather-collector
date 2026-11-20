@@ -83,6 +83,10 @@ weather-collector/
 - **增量更新**：按 (city, date) 去重，重复采集不产生脏数据
 - **无人值守**：配合 GitHub Actions 实现每日自动采集与图表更新
 
+## 🗺 全国天气地图（交互式）
+
+打开 [全国天气地图](docs/weather_map.html) 查看交互式中国地图——按省份着色，支持缩放、hover 详情、气温/降水一键切换。
+
 ## 📅 年度天气账单（仪式感长图）
 
 ![年度天气账单](docs/annual_report.svg)
