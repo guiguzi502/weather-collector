@@ -19,6 +19,8 @@ try:
     import yaml
 except ImportError:
     print("需要 PyYAML：pip install pyyaml")
+    # 退出码 2 = 环境问题，不是 workflow 本身的问题。
+    # CI 里 requirements.txt 已含 PyYAML；本地缺依赖时 pre-push 会自动跳过。
     raise SystemExit(2)
 
 WF_DIR = Path(".github/workflows")
