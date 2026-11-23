@@ -3,7 +3,7 @@
 #
 # 为什么必须要这个（2026-11-23 的事故）：
 #   run: bash xxx.sh "chore: daily update"
-#                                   ^ ": " 让 YAML 当成新映射键
+#                                   ^ 冒号+空格 让 YAML 当成新映射键
 #   -> GitHub 解析失败，name 回退成文件路径，workflow_dispatch 消失，
 #      dispatch API 返回 422，push 建的 run 里 total_count=0（无 job）。
 #   CI 里的自检对这个文件自己是循环依赖——YAML 坏了 workflow 根本起不来，
@@ -12,8 +12,27 @@
 # 安装：bash scripts/install_hooks.sh
 set -uo pipefail
 
-echo "[pre-push] 校验 workflow YAML..."
-if ! python verify_workflows.py; then
+# 钩子执行时 cwd 不一定是仓库根目录，先切过去（否则找不到 verify_*.py）
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -n "${REPO_ROOT:-}" ]; then
+  cd "$REPO_ROOT" || exit 1
+fi
+
+# 选可用的 python：Linux/CI 是 python3，Windows 的 PortableGit 里可能只有 python
+PY=""
+for cand in python3 python py; do
+  if command -v "$cand" >/dev/null 2>&1; then
+    PY="$cand"
+    break
+  fi
+done
+if [ -z "$PY" ]; then
+  echo "[pre-push] 找不到 python，跳过校验"
+  exit 0
+fi
+
+echo "[pre-push] 校验 workflow YAML... ($PY, cwd=$(pwd))"
+if ! "$PY" verify_workflows.py; then
   echo ""
   echo "[pre-push] workflow YAML 有问题，已阻止推送。"
   echo "           修好后重新 push，或用 git push --no-verify 强制跳过。"
@@ -22,7 +41,7 @@ fi
 
 if [ -f verify_readme.py ]; then
   echo "[pre-push] 校验 README 资源..."
-  if ! python verify_readme.py; then
+  if ! "$PY" verify_readme.py; then
     echo ""
     echo "[pre-push] README 资源不一致，已阻止推送。"
     echo "           先跑 python main.py 重新生成产物。"
