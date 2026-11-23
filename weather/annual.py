@@ -163,8 +163,5 @@ def make_annual_report(records: list[dict]) -> Path:
 </svg>'''
     path = OUTPUT_DIR / "annual_report.svg"
     path.write_text(svg, encoding="utf-8")
-    docs = Path("docs")
-    docs.mkdir(exist_ok=True)
-    (docs / "annual_report.svg").write_bytes(path.read_bytes())
     logger.info("年度天气账单已生成：%s（%d 行高）", path, height)
     return path

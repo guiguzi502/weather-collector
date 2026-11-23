@@ -1,12 +1,17 @@
 # 天气数据采集与可视化分析系统
 
-[![数据更新](https://img.shields.io/badge/数据更新-2026-11-22-1F4E79)](https://github.com/guiguzi502/weather-collector/actions)  [![记录数](https://img.shields.io/badge/记录数-1209-2E86AB)](https://github.com/guiguzi502/weather-collector)  [![CI](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml/badge.svg)](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml)
+[![数据日期](https://img.shields.io/badge/数据日期-2026-11-22-1F4E79)](https://github.com/guiguzi502/weather-collector/actions)  [![运行于](https://img.shields.io/badge/运行于-2026-11-23-27AE60)](https://github.com/guiguzi502/weather-collector/actions)  [![记录数](https://img.shields.io/badge/记录数-1209-2E86AB)](https://github.com/guiguzi502/weather-collector)  [![CI](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml/badge.svg)](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml)
 
 基于 Open-Meteo 免费开放 API 的端到端数据工程小项目：**采集 → 清洗 → 存储 → 可视化 → 每日自动更新**。
 
+> ⏱ **关于「数据日期」为什么比今天早一天**
+> 日统计需要完整 24 小时样本，所以主流程采集的是**已归档的完整日**（`date.today() - 1`）。
+> 徽章同时给出 `数据日期`（数据本身到哪天）和 `运行于`（本次执行日期）——后者每天都在变，
+> 才说明自动化是活的。归档延迟通常 1 天，偶尔 2 天。
+
 ## 🌤 今日天气总览（每天自动刷新）
 
-![12城天气总览](docs/weather_card.svg)
+![13城天气总览](docs/weather_card.svg)
 
 ## 🖥 双城天气对比（长沙 vs 太原）
 
@@ -70,11 +75,19 @@ weather-collector/
 │   ├── cleaner.py          # 数据清洗（缺失值/异常值）
 │   ├── storage.py          # SQLite 存取，自动去重
 │   ├── visualize.py        # Matplotlib 图表生成
-│   └── report.py           # SVG 天气卡 / 双城穿搭卡 / ECharts 报告
+│   ├── report.py           # SVG 天气卡 / 双城穿搭卡 / ECharts 报告
+│   ├── annual.py           # 年度天气账单 SVG
+│   ├── map_view.py         # ECharts 全国省级地图
+│   └── sync.py             # output/ → docs/ 统一镜像 + README 引用自检
 ├── data/                   # SQLite 数据库（自动生成）
-├── output/                 # 图表输出（自动生成）
+├── output/                 # 图表产物唯一落地点（自动生成）
+├── docs/                   # README 引用的镜像副本 + 静态 china.json
 └── .github/workflows/daily.yml  # 每日 08:00 自动运行
 ```
+
+> ⚠️ **产物路径约定**：所有图表只由 `output/` 生成，`docs/` 是 README 的镜像目录，
+> 由 `weather/sync.py` 统一复制。**不要绕过 `sync_docs()` 直接往 `docs/` 写**——
+> 2026-11-23 之前就是这么散的，导致 README 图片停在 11-20 不再更新。
 
 ## 核心设计
 

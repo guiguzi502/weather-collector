@@ -13,7 +13,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from weather import cleaner, storage  # noqa: E402
+from weather import cleaner, storage, sync  # noqa: E402
 
 
 # ------------------------------------------------ 清洗
@@ -90,6 +90,132 @@ class TestStorage:
         rows = db.query(city="上海", start="2026-10-06", end="2026-10-15")
         assert len(rows) == 1
         assert rows[0]["date"] == "2026-10-10"
+
+
+# ------------------------------------------------ 同步（回归测试）
+class TestSyncDocs:
+    """锁定 2026-11-23 的 bug：README 引用 docs/，但没人往 docs/ 写。
+
+    真实症状：daily.yml 只 git add data/ output/ README.md，
+    docs/ 从 11-20 起冻住，README 图片永远停在旧数据。
+    """
+
+    def test_sync_copies_all_listed_files(self, tmp_path):
+        out = tmp_path / "output"
+        docs = tmp_path / "docs"
+        out.mkdir()
+        for name in sync.SYNC_FILES:
+            (out / name).write_bytes(b"data-" + name.encode())
+
+        synced = sync.sync_docs(out, docs)
+
+        assert set(synced) == set(sync.SYNC_FILES)
+        for name in sync.SYNC_FILES:
+            assert (docs / name).exists(), f"{name} 没被同步到 docs/"
+
+    def test_sync_skips_identical_content(self, tmp_path):
+        """内容相同不重复覆盖，避免无意义刷新 mtime。"""
+        out = tmp_path / "output"
+        docs = tmp_path / "docs"
+        out.mkdir()
+        docs.mkdir()
+        name = sync.SYNC_FILES[0]
+        (out / name).write_bytes(b"same")
+        sync.sync_docs(out, docs)
+
+        second = sync.sync_docs(out, docs)
+        assert second == [], "内容未变时应跳过"
+
+    def test_sync_overwrites_changed_content(self, tmp_path):
+        """内容变了必须覆盖——这正是之前 docs/ 冻住的原因。"""
+        out = tmp_path / "output"
+        docs = tmp_path / "docs"
+        out.mkdir()
+        docs.mkdir()
+        name = sync.SYNC_FILES[0]
+        (out / name).write_bytes(b"old")
+        sync.sync_docs(out, docs)
+        assert (docs / name).read_bytes() == b"old"
+
+        (out / name).write_bytes(b"new-content")
+        synced = sync.sync_docs(out, docs)
+
+        assert name in synced
+        assert (docs / name).read_bytes() == b"new-content"
+
+    def test_sync_missing_source_is_skipped(self, tmp_path):
+        """产物缺失时跳过而不是崩溃（单城市跑等场景）。"""
+        out = tmp_path / "output"
+        docs = tmp_path / "docs"
+        out.mkdir()
+        name = sync.SYNC_FILES[0]
+        (out / name).write_bytes(b"x")
+
+        synced = sync.sync_docs(out, docs)
+
+        assert synced == [name]
+        assert not (docs / sync.SYNC_FILES[1]).exists()
+
+    def test_sync_preserves_unrelated_docs_files(self, tmp_path):
+        """docs/china.json 是静态资源，不能被同步逻辑动到。"""
+        out = tmp_path / "output"
+        docs = tmp_path / "docs"
+        out.mkdir()
+        docs.mkdir()
+        static = docs / "china.json"
+        static.write_bytes(b'{"type":"FeatureCollection"}')
+
+        sync.sync_docs(out, docs)
+
+        assert static.exists()
+        assert static.read_bytes() == b'{"type":"FeatureCollection"}'
+
+    def test_sync_list_covers_readme_images(self, tmp_path, monkeypatch):
+        """README 里引用的 docs/ 图片必须在 SYNC_FILES 清单里。
+
+        这是最直接的一条防线：清单漏了哪个文件，这个测试就红。
+        """
+        readme = Path(__file__).resolve().parents[1] / "README.md"
+        if not readme.exists():
+            pytest.skip("README.md 不存在")
+
+        import re
+        text = readme.read_text(encoding="utf-8")
+        refs = [r for r in re.findall(r"!\[[^\]]*\]\(([^)]+)\)", text)
+                if not r.startswith(("http://", "https://"))]
+
+        listed = set(sync.SYNC_FILES)
+        missing_from_list = [
+            Path(r).name for r in refs
+            if str(Path(r).parent).replace("\\", "/") == "docs"
+            and Path(r).name not in listed
+        ]
+        assert not missing_from_list, (
+            f"README 引用但 SYNC_FILES 未列出的文件：{missing_from_list}"
+        )
+
+    def test_check_readme_refs_reports_missing(self, tmp_path):
+        """check_readme_refs 能抓出指向不存在文件的引用。"""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "# t\n\n"
+            "![a](docs/present.png)\n"
+            "![b](docs/absent.png)\n"
+            "![c](https://example.com/remote.png)\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "present.png").write_bytes(b"x")
+
+        cwd = Path.cwd()
+        try:
+            import os
+            os.chdir(tmp_path)
+            missing = sync.check_readme_refs(readme)
+        finally:
+            os.chdir(cwd)
+
+        assert missing == ["docs/absent.png"], "远程 URL 不该算缺失，存在的不该报"
 
 
 # ------------------------------------------------ API

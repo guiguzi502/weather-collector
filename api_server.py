@@ -16,6 +16,8 @@
     GET /api/health                 # 健康检查
     GET /                          # 简易 API 文档页
 """
+from __future__ import annotations
+
 import argparse
 import json
 import logging

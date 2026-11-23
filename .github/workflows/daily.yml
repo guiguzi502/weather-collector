@@ -27,10 +27,25 @@ jobs:
       - name: Collect & visualize
         run: python main.py --days 1
 
+      - name: Verify README assets
+        run: |
+          # README 引用的本地图片必须存在，防止「日期在变、图不动」
+          python - <<'PY'
+          import sys
+          from weather.sync import check_readme_refs
+          missing = check_readme_refs()
+          if missing:
+              print("缺失文件:", missing)
+              sys.exit(1)
+          print("README 图片引用完整")
+          PY
+
       - name: Commit results
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f data/ output/ README.md   # 每日数据/图表/报告 + README 徽章
+          # data/ output/ docs/ 全量 + README 徽章
+          # 注意：docs/ 必须包含——README 里所有图片都指向它
+          git add -f data/ output/ docs/ README.md
           git diff --cached --quiet || git commit -m "chore: daily weather update $(date +%F)"
           git push

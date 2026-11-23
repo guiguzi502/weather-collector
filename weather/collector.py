@@ -5,6 +5,8 @@
 - 指数退避重试
 - 输出标准化的记录列表
 """
+from __future__ import annotations
+
 import logging
 import time
 

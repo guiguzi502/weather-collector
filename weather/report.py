@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """报告生成模块：SVG 天气卡片 + ECharts 交互式 HTML 报告。"""
+from __future__ import annotations
+
 import json
 import logging
 from pathlib import Path
@@ -86,10 +88,7 @@ def make_svg_card(records: list[dict]) -> Path:
     yesterday = df[df["date"] == prev].set_index("city")["temp_avg"] if prev else None
 
     path = _write_native_svg(today, latest, yesterday)
-    # 同步一份到 docs/（README 引用路径）
-    docs = Path("docs")
-    docs.mkdir(exist_ok=True)
-    (docs / "weather_card.svg").write_bytes(path.read_bytes())
+    # 同步到 docs/ 由 weather/sync.py 统一处理，此处不再各写各的
     return path
 
 
@@ -244,10 +243,7 @@ def make_duel_dressing_card(records: list[dict],
 </svg>'''
     path = OUTPUT_DIR / "duel_dressing.svg"
     path.write_text(svg, encoding="utf-8")
-    # 同步 docs/
-    docs = Path("docs")
-    docs.mkdir(exist_ok=True)
-    (docs / "duel_dressing.svg").write_bytes(path.read_bytes())
+    # 同步到 docs/ 由 weather/sync.py 统一处理
     logger.info("双城穿衣对比卡已生成：%s", path)
     return path
 

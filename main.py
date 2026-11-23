@@ -15,7 +15,8 @@ from pathlib import Path
 import pandas as pd
 
 from config import CITIES
-from weather import collector, cleaner, storage, visualize, report, annual, map_view
+from weather import (collector, cleaner, storage, visualize, report,
+                     annual, map_view, sync)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,10 +36,13 @@ def parse_args():
 
 
 def update_readme_badge(records: list, summary: dict) -> None:
-    """更新 README 顶部徽章：显示数据更新日期与总记录数。
+    """更新 README 顶部徽章：数据日期 + 运行时间 + 总记录数。
 
-    替换 README 中形如 ``[![...](...)]`` 的徽章行；不存在则插入标题下方。
-    徽章使用 shields.io 动态端点，无需额外服务。
+    关键设计（2026-11-23 修复）：
+        archive API 只能拿到已归档的完整日数据，所以 ``latest`` 永远是"昨天"。
+        如果徽章只写数据日期，用户今天看会觉得"没更新"。
+        因此额外加一个 ``运行于`` 徽章记录本次执行日期（今天），
+        两者一起看才说明系统是活的。
     """
     readme = Path("README.md")
     if not readme.exists():
@@ -48,9 +52,18 @@ def update_readme_badge(records: list, summary: dict) -> None:
     df = pd.DataFrame(records)
     latest = str(df["date"].max())[:10] if not df.empty else "—"
     total = summary.get("total", 0)
+    run_day = date.today().isoformat()
+    # 数据日期与今天相差的天数，用于说明归档延迟
+    lag_days = 0
+    try:
+        lag_days = (date.today() - date.fromisoformat(latest)).days
+    except (ValueError, TypeError):
+        pass
 
     badge_line = (
-        f"[![数据更新](https://img.shields.io/badge/数据更新-{latest}-1F4E79)]"
+        f"[![数据日期](https://img.shields.io/badge/数据日期-{latest}-1F4E79)]"
+        f"(https://github.com/guiguzi502/weather-collector/actions)  "
+        f"[![运行于](https://img.shields.io/badge/运行于-{run_day}-27AE60)]"
         f"(https://github.com/guiguzi502/weather-collector/actions)  "
         f"[![记录数](https://img.shields.io/badge/记录数-{total}-2E86AB)]"
         f"(https://github.com/guiguzi502/weather-collector)  "
@@ -73,7 +86,8 @@ def update_readme_badge(records: list, summary: dict) -> None:
                 lines.insert(i + 2, badge_line)
                 break
     readme.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    logger.info("README 徽章已更新：%s / %s 条", latest, total)
+    logger.info("README 徽章已更新：数据 %s（滞后 %d 天）/ 运行于 %s / %s 条",
+                latest, lag_days, run_day, total)
 
 
 def update_duel_stats(records: list, city_a: str = "长沙",
@@ -155,10 +169,21 @@ def main():
     report.make_html_report(full)
     annual.make_annual_report(full)
     map_view.make_weather_map(full)
+
+    # 统一把 output/ 产物镜像到 docs/（README 引用的路径）
+    sync.sync_docs()
+
     update_readme_badge(full, db.summary())
     update_duel_stats(full, "长沙", "太原", days=60)
 
     db.close()
+
+    # 自检：README 引用的本地图片必须全部存在，否则 CI 直接失败
+    missing = sync.check_readme_refs()
+    if missing:
+        logger.error("README 引用的图片缺失：%s", ", ".join(missing))
+        return 1
+    logger.info("README 图片引用自检通过")
 
     # 控制台摘要
     df = pd.DataFrame(all_records)

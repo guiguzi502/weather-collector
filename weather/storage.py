@@ -4,6 +4,8 @@
 - 按 (city, date) 唯一约束，重复采集自动去重（INSERT OR REPLACE）
 - 支持按城市、日期范围查询
 """
+from __future__ import annotations
+
 import logging
 import sqlite3
 from pathlib import Path

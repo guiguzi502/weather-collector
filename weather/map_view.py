@@ -5,6 +5,8 @@
 - geoJSON 从 docs/china.json 读取并内嵌到 HTML（CI 无需联网下载）
 - 浏览器打开 HTML 即可交互（hover 显示详情 / 缩放 / 切换温度与降水）
 """
+from __future__ import annotations
+
 import html
 import json
 import logging
@@ -172,7 +174,6 @@ window.addEventListener("resize", () => chart.resize());
 </body></html>"""
     path = OUTPUT_DIR / "weather_map.html"
     path.write_text(html_doc, encoding="utf-8")
-    DOCS_DIR.mkdir(exist_ok=True)
-    (DOCS_DIR / "weather_map.html").write_bytes(path.read_bytes())
+    # 同步到 docs/ 由 weather/sync.py 统一处理（geoJSON 来源 docs/china.json 保持不变）
     logger.info("全国天气地图已生成：%s", path)
     return path
