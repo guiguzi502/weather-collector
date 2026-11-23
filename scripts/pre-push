@@ -18,20 +18,50 @@ if [ -n "${REPO_ROOT:-}" ]; then
   cd "$REPO_ROOT" || exit 1
 fi
 
-# 选可用的 python：Linux/CI 是 python3，Windows 的 PortableGit 里可能只有 python
-PY=""
-for cand in python3 python py; do
-  if command -v "$cand" >/dev/null 2>&1; then
-    PY="$cand"
-    break
+# 选一个「能跑、且装了 PyYAML」的 python。
+# 不能只看 command -v：PortableGit 里 python3 可能是坏 shim，
+# Windows 的 py 启动器可能指向没装依赖的解释器。
+find_python() {
+  local cands=()
+  # 1) 环境变量显式指定
+  [ -n "${DSH_PYTHON:-}" ] && cands+=("$DSH_PYTHON")
+  # 2) PATH 里的常规命令
+  cands+=(python3 python py)
+  # 3) Windows 常见安装位置（PortableGit bash 里 PATH 常常不全）
+  #    注意 set -u 下不能直接用 $USER，用 HOME 派生
+  local home="${HOME:-}"
+  if [ -n "$home" ]; then
+    for v in 39 313 315 314; do
+      cands+=("$home/AppData/Local/Programs/Python/Python$v/python.exe")
+    done
   fi
-done
+  # 4) 兜底：扫一遍 Python* 目录
+  if [ -d "$home/AppData/Local/Programs/Python" ]; then
+    for d in "$home"/AppData/Local/Programs/Python/Python*/python.exe; do
+      [ -x "$d" ] && cands+=("$d")
+    done
+  fi
+
+  for c in "${cands[@]}"; do
+    [ -n "$c" ] || continue
+    if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then
+      if "$c" -c "import yaml" >/dev/null 2>&1; then
+        echo "$c"
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+
+PY="$(find_python)" || PY=""
 if [ -z "$PY" ]; then
-  echo "[pre-push] 找不到 python，跳过校验"
+  echo "[pre-push] 找不到装了 PyYAML 的 python，跳过校验"
+  echo "           手动安装：pip install pyyaml"
   exit 0
 fi
 
-echo "[pre-push] 校验 workflow YAML... ($PY, cwd=$(pwd))"
+echo "[pre-push] 校验 workflow YAML... ($PY)"
 if ! "$PY" verify_workflows.py; then
   echo ""
   echo "[pre-push] workflow YAML 有问题，已阻止推送。"
