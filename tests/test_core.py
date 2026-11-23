@@ -274,6 +274,95 @@ class TestVerifyReadme:
         assert mod.diff_docs_vs_output() == []
 
 
+class TestVerifyWorkflows:
+    """锁定「workflow YAML 解析失败」这个事故（2026-11-23）。
+
+    症状：run: bash x.sh "chore: daily update" 里的 ": " 被 YAML 当成新映射键，
+    GitHub 解析失败后 name 回退成文件路径、workflow_dispatch 消失、
+    dispatch API 返 422、push 建的 run 里 total_count=0（有 run 无 job）。
+
+    这个自检对损坏的 workflow 文件本身是循环依赖（YAML 坏了 workflow 起不来），
+    所以它主要靠本地 pre-push 钩子触发，CI 里额外保护其余 workflow。
+    """
+
+    def test_real_workflows_pass(self):
+        """仓库里真实的 workflow 必须全部通过。"""
+        import verify_workflows
+
+        files = sorted(Path(".github/workflows").glob("*.yml"))
+        if not files:
+            pytest.skip("没有 workflow 文件")
+        for f in files:
+            problems = verify_workflows.check(f)
+            assert not problems, f"{f} 有问题：{problems}"
+
+    def test_catches_colon_in_run(self, tmp_path):
+        """run: 后面裸露 'a: b' 必须被抓出来——这就是事故现场。"""
+        import verify_workflows
+
+        bad = tmp_path / "bad.yml"
+        bad.write_text(
+            "name: t\n"
+            "on:\n"
+            "  workflow_dispatch:\n"
+            "jobs:\n"
+            "  j:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    steps:\n"
+            "      - run: bash x.sh \"chore: daily update\"\n",
+            encoding="utf-8",
+        )
+        problems = verify_workflows.check(bad)
+        assert problems, "冒号裸露在 run: 后必须报错"
+        assert any("YAML" in p for p in problems)
+
+    def test_catches_missing_workflow_dispatch(self, tmp_path):
+        import verify_workflows
+
+        f = tmp_path / "nodisp.yml"
+        f.write_text(
+            "name: t\n"
+            "on:\n"
+            "  schedule:\n"
+            "    - cron: '0 0 * * *'\n"
+            "jobs:\n"
+            "  j:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    steps:\n"
+            "      - run: echo hi\n",
+            encoding="utf-8",
+        )
+        problems = verify_workflows.check(f)
+        assert any("workflow_dispatch" in p for p in problems)
+
+    def test_catches_utf16_encoding(self, tmp_path):
+        """UTF-16 文件 GitHub 读不了，必须报出来。"""
+        import verify_workflows
+
+        f = tmp_path / "utf16.yml"
+        f.write_bytes("name: t\non: push\n".encode("utf-16"))
+        problems = verify_workflows.check(f)
+        assert any("UTF-16" in p for p in problems)
+
+    def test_catches_step_without_run_or_uses(self, tmp_path):
+        import verify_workflows
+
+        f = tmp_path / "badstep.yml"
+        f.write_text(
+            "name: t\n"
+            "on:\n"
+            "  workflow_dispatch:\n"
+            "jobs:\n"
+            "  j:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    steps:\n"
+            "      - name: 啥也不干\n",
+            encoding="utf-8",
+        )
+        problems = verify_workflows.check(f)
+        assert any("uses" in p or "run" in p for p in problems)
+
+
 # ------------------------------------------------ API
 class TestAPIServer:
     """用临时 db + 内置服务实测 API 查询逻辑。"""

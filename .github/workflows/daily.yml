@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Verify workflow YAML
+        run: python verify_workflows.py
+
       - name: Run tests
         run: python -m pytest tests/ -q
 
@@ -37,4 +40,9 @@ jobs:
         run: python verify_readme.py
 
       - name: Commit results
-        run: bash scripts/commit_artifacts.sh "chore: daily weather update $(date +%F)" "data/ output/ docs/ README.md"
+        run: |
+          # 注意：不能让 "chore: xxx" 直接裸露在 run: 后面——
+          # YAML 会把 ": " 当作新映射键，整个 workflow 解析失败（2026-11-23 踩过）
+          bash scripts/commit_artifacts.sh \
+            "chore: daily weather update $(date +%F)" \
+            "data/ output/ docs/ README.md"

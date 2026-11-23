@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# 本地 pre-push 钩子：推送前校验 workflow YAML 和 README 资源。
+#
+# 为什么必须要这个（2026-11-23 的事故）：
+#   run: bash xxx.sh "chore: daily update"
+#                                   ^ ": " 让 YAML 当成新映射键
+#   -> GitHub 解析失败，name 回退成文件路径，workflow_dispatch 消失，
+#      dispatch API 返回 422，push 建的 run 里 total_count=0（无 job）。
+#   CI 里的自检对这个文件自己是循环依赖——YAML 坏了 workflow 根本起不来，
+#   所以只能在推送**之前**本地拦下。
+#
+# 安装：bash scripts/install_hooks.sh
+set -uo pipefail
+
+echo "[pre-push] 校验 workflow YAML..."
+if ! python verify_workflows.py; then
+  echo ""
+  echo "[pre-push] workflow YAML 有问题，已阻止推送。"
+  echo "           修好后重新 push，或用 git push --no-verify 强制跳过。"
+  exit 1
+fi
+
+if [ -f verify_readme.py ]; then
+  echo "[pre-push] 校验 README 资源..."
+  if ! python verify_readme.py; then
+    echo ""
+    echo "[pre-push] README 资源不一致，已阻止推送。"
+    echo "           先跑 python main.py 重新生成产物。"
+    exit 1
+  fi
+fi
+
+echo "[pre-push] 全部通过"
+exit 0
