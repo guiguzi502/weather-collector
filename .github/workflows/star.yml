@@ -33,29 +33,10 @@ jobs:
 
       - name: Commit milestone
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # 文件可能不存在（还没到首个里程碑）——先建初始文件，避免 pathspec 报错
           if [ ! -f docs/star_milestones.md ]; then
             mkdir -p docs
             printf '# ⭐ Star 里程碑\n\n记录本仓库达成的重要 Star 节点。每日 08:00 自动检查，达到即记录 🎉\n\n| 里程碑 | 达成时间 | 当时 Star 数 |\n|---|---|---|\n\n> 暂无里程碑达成（当前目标：10 ⭐）\n' > docs/star_milestones.md
             echo "已创建初始 docs/star_milestones.md"
           fi
-          git add -f docs/star_milestones.md
-          if git diff --cached --quiet; then
-            echo "无新里程碑，跳过提交"
-            exit 0
-          fi
-          git commit -m "docs: star milestone reached $(date +%F)"
-          # daily.yml 也可能同时 push，被拒就 rebase 重试
-          for i in 1 2 3; do
-            if git push; then
-              echo "推送成功"
-              exit 0
-            fi
-            echo "推送被拒（第 $i 次），rebase 后重试..."
-            git pull --rebase --autostash origin main || true
-            sleep 3
-          done
-          echo "推送最终失败"
-          exit 1
+          bash scripts/commit_artifacts.sh "docs: star milestone reached $(date +%F)" "docs/star_milestones.md"

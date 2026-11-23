@@ -37,26 +37,4 @@ jobs:
         run: python verify_readme.py
 
       - name: Commit results
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # data/ output/ docs/ 全量 + README 徽章
-          # 注意：docs/ 必须包含——README 里所有图片都指向它
-          git add -f data/ output/ docs/ README.md
-          if git diff --cached --quiet; then
-            echo "无变更，跳过提交"
-            exit 0
-          fi
-          git commit -m "chore: daily weather update $(date +%F)"
-          # star.yml 也可能同时 push，被拒就 rebase 重试
-          for i in 1 2 3; do
-            if git push; then
-              echo "推送成功"
-              exit 0
-            fi
-            echo "推送被拒（第 $i 次），rebase 后重试..."
-            git pull --rebase --autostash origin main || true
-            sleep 3
-          done
-          echo "推送最终失败"
-          exit 1
+        run: bash scripts/commit_artifacts.sh "chore: daily weather update $(date +%F)" "data/ output/ docs/ README.md"
