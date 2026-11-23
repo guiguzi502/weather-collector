@@ -218,6 +218,62 @@ class TestSyncDocs:
         assert missing == ["docs/absent.png"], "远程 URL 不该算缺失，存在的不该报"
 
 
+class TestVerifyReadme:
+    """锁定「docs/ 与 output/ 不同步」这个故障的直接防线。
+
+    2026-11-23 事故：output/ 天天更新，docs/ 冻在 2025-11-20，
+    README 图片永远显示旧数据。verify_readme.py 必须能抓出这种漂移。
+    """
+
+    @pytest.fixture()
+    def sandbox(self, tmp_path, monkeypatch):
+        """临时工作目录：output/ + docs/ 各放一份相同产物。"""
+        import verify_readme
+
+        out = tmp_path / "output"
+        docs = tmp_path / "docs"
+        out.mkdir()
+        docs.mkdir()
+        name = sync.SYNC_FILES[0]
+        (out / name).write_bytes(b"fresh-data")
+        (docs / name).write_bytes(b"fresh-data")
+
+        monkeypatch.setattr(verify_readme, "OUTPUT_DIR", out)
+        monkeypatch.setattr(verify_readme, "DOCS_DIR", docs)
+        return verify_readme, out, docs, name
+
+    def test_consistent_state_passes(self, sandbox):
+        mod, out, docs, name = sandbox
+        assert mod.diff_docs_vs_output() == []
+
+    def test_detects_stale_docs(self, sandbox):
+        """docs/ 落后于 output/ ——正是事故现场。"""
+        mod, out, docs, name = sandbox
+        (docs / name).write_bytes(b"old-stale")
+
+        stale = mod.diff_docs_vs_output()
+
+        assert stale, "docs/ 落后时必须报出来"
+        assert name in stale[0]
+
+    def test_detects_missing_in_docs(self, sandbox):
+        mod, out, docs, name = sandbox
+        (docs / name).unlink()
+
+        stale = mod.diff_docs_vs_output()
+
+        assert stale
+        assert "缺失" in stale[0]
+
+    def test_missing_output_is_not_an_error(self, sandbox):
+        """本地只跑单城市时某些产物不存在，不该判失败。"""
+        mod, out, docs, name = sandbox
+        (out / name).unlink()
+        (docs / name).unlink()
+
+        assert mod.diff_docs_vs_output() == []
+
+
 # ------------------------------------------------ API
 class TestAPIServer:
     """用临时 db + 内置服务实测 API 查询逻辑。"""
