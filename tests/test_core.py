@@ -13,7 +13,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from weather import cleaner, storage, sync  # noqa: E402
+from weather import cleaner, storage, sync, gaps  # noqa: E402
 
 
 # ------------------------------------------------ 清洗
@@ -396,8 +396,14 @@ class TestAPIServer:
         try:
             yield f"http://127.0.0.1:{port}"
         finally:
+            # 顺序不能变：先拒绝新连接，再等 serve_forever 退出，
+            # 最后 join 线程。少了 join，上一个测试遗留的 handler 线程
+            # 可能在 DB_PATH 已还原、临时库已删除之后才去读库 ——
+            # 表现为「单独跑全过、整套跑偶发 404/500」。
             server.shutdown()
-            api_server.DB_PATH = orig_db  # 请求全部结束后再恢复
+            server.server_close()
+            t.join(timeout=5)
+            api_server.DB_PATH = orig_db
 
     def _get(self, url):
         with urllib.request.urlopen(url, timeout=5) as resp:

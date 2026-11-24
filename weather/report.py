@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from config import CITIES
+
 logger = logging.getLogger(__name__)
 
 OUTPUT_DIR = Path("output")
@@ -74,7 +76,7 @@ def dressing_suffix(precip: float) -> str:
 
 
 def make_svg_card(records: list[dict]) -> Path:
-    """生成 12 城今日天气总览 SVG 卡片（温差箭头 + 穿衣建议 + 趣味榜单）。"""
+    """生成全城今日天气总览 SVG 卡片（温差箭头 + 穿衣建议 + 趣味榜单）。"""
     _ensure_dir()
     df = pd.DataFrame(records)
     if df.empty:
@@ -160,7 +162,7 @@ def _write_native_svg(today: pd.DataFrame, latest: str,
     height = y + 24
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="760" height="{height}" viewBox="0 0 760 {height}">
   <rect width="760" height="{height}" rx="12" fill="#FFFFFF" stroke="#E4E8EE" stroke-width="1.5"/>
-  <text x="20" y="34" font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="18" font-weight="700" fill="#1F4E79">🌤 12 城天气总览</text>
+  <text x="20" y="34" font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="18" font-weight="700" fill="#1F4E79">🌤 {len(CITIES)} 城天气总览</text>
   <text x="20" y="58" font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#8A94A6">数据日期：{latest} · 每日 08:00 自动更新 · 数据源 Open-Meteo · ▲/▼ 较昨日温差</text>
   {''.join(parts)}
 </svg>'''
@@ -269,7 +271,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h1>🌤 12 城天气数据可视化报告</h1>
+<h1>🌤 {city_count} 城天气数据可视化报告</h1>
 <div class="meta">数据区间：{date_from} ~ {date_to} · 记录数：{total} · 每日 08:00 由 GitHub Actions 自动更新</div>
 <div class="grid">
   <div class="panel"><h3>各城市平均气温（最新一天）</h3><div id="c1" class="chart"></div></div>
@@ -389,8 +391,36 @@ def make_html_report(records: list[dict]) -> Path:
         "monthly_precip": monthly_precip,
         "heat": {"cities": cities, "days": days, "values": heat_values},
     }
-    html = HTML_TEMPLATE.replace("__DATA__", json.dumps(data, ensure_ascii=False))
+
+    # 修复（2026-11-25）：模板里的 CSS/JS 花括号全部写成 {{ }}（.format 转义写法），
+    # 但原实现只做了 .replace("__DATA__")，于是线上页面渲染成字面 {{ }}——
+    # 54 处双花括号 = 整页 JS 语法错误，4 张图全不渲染；
+    # 而 {date_from}/{total} 也原样输出在页面上。
+    # 现在先 format 补齐元信息，再注入 JSON 数据。
+    city_count = len({r["city"] for r in records})
+    rendered = HTML_TEMPLATE.format(
+        city_count=city_count,
+        date_from=str(df["date"].min())[:10],
+        date_to=str(df["date"].max())[:10],
+        total=len(df),
+    )
+
+    # 转义检查必须在注入 JSON **之前**做：JSON 的嵌套对象本身就以 }} 结尾，
+    # 混在一起判会让正常输出也报错。
+    # __DATA__ 不在此列 —— 它按设计留到下一步才替换。
+    leftover = [t for t in ("{{", "}}", "{date_from}", "{date_to}",
+                            "{total}", "{city_count}")
+                if t in rendered]
+    if leftover:
+        logger.error("HTML 模板仍有未替换标记：%s", ", ".join(leftover))
+        return OUTPUT_DIR / "weather_report.html"
+
+    html = rendered.replace("__DATA__", json.dumps(data, ensure_ascii=False))
+    if "__DATA__" in html:
+        logger.error("HTML 模板 __DATA__ 未注入")
+        return OUTPUT_DIR / "weather_report.html"
+
     path = OUTPUT_DIR / "weather_report.html"
     path.write_text(html, encoding="utf-8")
-    logger.info("HTML 报告已生成：%s", path)
+    logger.info("HTML 报告已生成：%s（%d 城 / %d 条）", path, city_count, len(df))
     return path

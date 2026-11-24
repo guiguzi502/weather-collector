@@ -24,6 +24,15 @@ jobs:
         with:
           python-version: "3.11"
 
+      # ubuntu-latest runner 默认没有中文字体，matplotlib 会把每个汉字
+      # 画成方框（36 条 Glyph missing 警告）。必须显式装。
+      - name: Install CJK fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+          fc-cache -f > /dev/null
+          fc-list :lang=zh | head -5
+
       - name: Install dependencies
         run: pip install -r requirements.txt
 
@@ -35,6 +44,9 @@ jobs:
 
       - name: Collect & visualize
         run: python main.py --days 1
+
+      - name: Verify chart fonts
+        run: python verify_charts.py
 
       - name: Verify README assets
         run: python verify_readme.py

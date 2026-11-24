@@ -10,11 +10,16 @@
     导致 output/ 天天更新而 docs/ 冻在 2025-11-20，
     README 图片永远停在旧数据，看起来就像"自动更新坏了"。
 
+第 3 条（2026-11-25 加）：``output/weather_report.html`` 里不能残留
+    模板标记 —— 那次线上页面有 54 处字面 ``{{ }}``，整页 JS 语法错误。
+
 用法:
     python verify_readme.py
 
 退出码 0 = 通过，1 = 有问题（CI 直接红）。
 """
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
@@ -42,6 +47,29 @@ def diff_docs_vs_output() -> list[str]:
     return stale
 
 
+def check_html_report(path: Path | str = Path("output/weather_report.html")) -> list[str]:
+    """检查生成的 HTML 报告里没有未替换的模板标记。
+
+    2026-11-25 修复：模板用 ``{{ }}`` 做 .format 转义，但代码只做了
+    ``.replace("__DATA__")``，线上页面出现 54 处字面双花括号 ——
+    整页 JS 语法错误，四张图全不渲染。这里把它变成 CI 硬失败。
+
+    注意：只检查**注入数据之前**就该消失的标记。JSON 里的嵌套对象
+    天然以 ``}}`` 结尾，不能当作残留。
+    """
+    p = Path(path)
+    if not p.exists():
+        return ["%s 不存在" % p]
+
+    text = p.read_text(encoding="utf-8")
+    problems = []
+    for marker in ("{date_from}", "{date_to}", "{total}", "__DATA__",
+                   "{city_count}", "{{", "\n}}" ):
+        if marker in text:
+            problems.append("%s 存在未替换标记 %r" % (p, marker))
+    return problems
+
+
 def main() -> int:
     failed = False
 
@@ -66,6 +94,16 @@ def main() -> int:
         return 1
 
     print(f"README 图片引用完整；docs/ 与 output/ 内容一致（{len(SYNC_FILES)} 个产物）")
+
+    # HTML 报告另算：它是 README 之外的独立页面，不受 SYNC_FILES 管理
+    html_problems = check_html_report()
+    if html_problems:
+        print("HTML 报告存在模板残留：")
+        for p in html_problems:
+            print(f"  - {p}")
+        return 1
+    print("HTML 报告模板标记已全部展开")
+
     return 0
 
 

@@ -1,6 +1,6 @@
 # 天气数据采集与可视化分析系统
 
-[![数据日期](https://img.shields.io/badge/数据日期-2026-11-23-1F4E79)](https://github.com/guiguzi502/weather-collector/actions)  [![运行于](https://img.shields.io/badge/运行于-2026-11-24-27AE60)](https://github.com/guiguzi502/weather-collector/actions)  [![记录数](https://img.shields.io/badge/记录数-1220-2E86AB)](https://github.com/guiguzi502/weather-collector)  [![CI](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml/badge.svg)](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml)
+[![数据日期](https://img.shields.io/badge/数据日期-2026-11-24-1F4E79)](https://github.com/guiguzi502/weather-collector/actions)  [![运行于](https://img.shields.io/badge/运行于-2026-11-25-27AE60)](https://github.com/guiguzi502/weather-collector/actions)  [![记录数](https://img.shields.io/badge/记录数-1235-2E86AB)](https://github.com/guiguzi502/weather-collector)  [![CI](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml/badge.svg)](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml)
 
 基于 Open-Meteo 免费开放 API 的端到端数据工程小项目：**采集 → 清洗 → 存储 → 可视化 → 每日自动更新**。
 
@@ -8,6 +8,11 @@
 > 日统计需要完整 24 小时样本，所以主流程采集的是**已归档的完整日**（`date.today() - 1`）。
 > 徽章同时给出 `数据日期`（数据本身到哪天）和 `运行于`（本次执行日期）——后者每天都在变，
 > 才说明自动化是活的。归档延迟通常 1 天，偶尔 2 天。
+
+> 🩹 **缺口自动回补**
+> 每次运行都会检查最近 7 天（`config.BACKFILL_DAYS`），只请求库里真正缺的日期。
+> API 抖动导致某城某天失败时，第二天会自动补上，不会留下永久缺口。
+> 只有前 6 天都完整时，本次才只发 1 天请求，正常日开销不变。
 
 ## 🌤 今日天气总览（每天自动刷新）
 
@@ -19,7 +24,7 @@
 
 ![长沙vs太原](docs/city_duel.png)
 
-> 近 60 天：长沙均温 18.5°C / 降水 299mm｜太原均温 10.0°C / 降水 79mm
+> 近 60 天：长沙均温 18.2°C / 降水 299mm｜太原均温 9.7°C / 降水 74mm
 
 ## 🖥 交互式可视化报告
 
@@ -34,6 +39,9 @@
 - **数据存储**：SQLite 持久化，支持按城市/日期查询，自动去重
 - **可视化分析**：日均气温趋势折线图、近 6 月降水量柱状图、城市温度对比
 - **每日自动更新**：GitHub Actions 定时任务，数据落地后自动提交图表
+- **缺口自动回补**：每次检查最近 7 天，单城失败次日自动补齐，不留永久空洞
+- **产物一致性自检**：`verify_readme.py` 逐字节比对 `docs/` 与 `output/`，
+  `verify_charts.py` 断言中文字体真的能渲染，`verify_workflows.py` 严格解析 YAML
 
 ## 快速开始
 
@@ -72,6 +80,7 @@ weather-collector/
 ├── api_server.py           # 零依赖 REST API 服务（标准库）
 ├── weather/
 │   ├── collector.py        # Open-Meteo API 采集（含重试/日志）
+│   ├── gaps.py             # 缺口回补规划（只请求真正缺的日期）
 │   ├── cleaner.py          # 数据清洗（缺失值/异常值）
 │   ├── storage.py          # SQLite 存取，自动去重
 │   ├── visualize.py        # Matplotlib 图表生成
@@ -79,6 +88,9 @@ weather-collector/
 │   ├── annual.py           # 年度天气账单 SVG
 │   ├── map_view.py         # ECharts 全国省级地图
 │   └── sync.py             # output/ → docs/ 统一镜像 + README 引用自检
+├── verify_workflows.py     # CI 自检：workflow YAML 严格解析
+├── verify_charts.py        # CI 自检：中文字体真的能渲染
+├── verify_readme.py        # CI 自检：docs/ 与 output/ 逐字节一致
 ├── data/                   # SQLite 数据库（自动生成）
 ├── output/                 # 图表产物唯一落地点（自动生成）
 ├── docs/                   # README 引用的镜像副本 + 静态 china.json
@@ -91,9 +103,12 @@ weather-collector/
 
 ## 核心设计
 
-- **容错重试**：接口异常自动重试 3 次，指数退避，失败记录日志
+- **容错重试**：接口异常自动重试 4 次，指数退避，失败记录日志
+- **缺口回补**：窗口内逐城比对库里已有日期，只请求缺的那几天；
+  单次抖动最多滞后一天被补上（2026-11-23 杭州/南京事故的根治）
 - **统一 Schema**：多城市数据通过统一的记录结构入库，字段标准化
 - **增量更新**：按 (city, date) 去重，重复采集不产生脏数据
+- **覆盖面自检**：最近 7 天任一城缺数据都会在日志里 WARNING，不再静默
 - **无人值守**：配合 GitHub Actions 实现每日自动采集与图表更新
 
 ## 🗺 全国天气地图（交互式）

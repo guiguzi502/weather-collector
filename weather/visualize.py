@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """可视化模块：基于 SQLite 数据生成图表。"""
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 
@@ -9,24 +11,66 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import pandas as pd
 
-from config import CHART_STYLE
+from config import CHART_STYLE, CITIES
 
 # 中文字体（Windows / Linux CI 双兼容）
+#
+# 修复（2026-11-25）：原来只探测 Ubuntu 的 noto / wqy 两个绝对路径，
+# 但 ubuntu-latest runner 默认没装中文字体 —— 36 条
+# ``Glyph ... missing from font(s) DejaVu Sans`` 警告，图里中文全是方框。
+# 现在按「本机已知路径 → 系统已注册字体」两级探测，并通过
+# strict=True 让缺字体在 CI 直接失败，而不是悄悄出方框图。
 from matplotlib import font_manager
-_CJK_FONTS = [
-    r"C:\Windows\Fonts\msyh.ttc",     # Windows 微软雅黑
-    r"C:\Windows\Fonts\simhei.ttf",
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",  # Ubuntu Noto
+
+_CJK_FONT_PATHS = (
+    r"C:\Windows\Fonts\msyh.ttc",                          # Windows 微软雅黑
+    r"C:\Windows\Fonts\simhei.ttf",                        # Windows 黑体
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
-]
-for _f in _CJK_FONTS:
-    if Path(_f).exists():
-        font_manager.fontManager.addfont(_f)
-        plt.rcParams["font.family"] = font_manager.FontProperties(fname=_f).get_name()
-        break
+    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+    "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+)
+
+# 系统里已注册的中文字体族名（CI 用 apt 装过字体后走这条）
+_CJK_FAMILIES = (
+    "Noto Sans CJK SC", "Noto Sans CJK JP", "Noto Sans SC",
+    "WenQuanYi Zen Hei", "WenQuanYi Micro Hei",
+    "Droid Sans Fallback", "Microsoft YaHei", "SimHei",
+    "PingFang SC", "Source Han Sans SC",
+)
+
+
+def _pick_cjk_font() -> str | None:
+    """返回可用的中文字体族名；一个都没有时返回 None。"""
+    for path in _CJK_FONT_PATHS:
+        if Path(path).exists():
+            try:
+                font_manager.fontManager.addfont(path)
+                return font_manager.FontProperties(fname=path).get_name()
+            except (RuntimeError, OSError, ValueError):
+                continue
+
+    installed = {f.name for f in font_manager.fontManager.ttflist}
+    for family in _CJK_FAMILIES:
+        if family in installed:
+            return family
+    return None
+
+
+CJK_FONT = _pick_cjk_font()
+if CJK_FONT:
+    plt.rcParams["font.family"] = CJK_FONT
+    plt.rcParams["font.sans-serif"] = [CJK_FONT] + list(
+        plt.rcParams.get("font.sans-serif", []))
 plt.rcParams["axes.unicode_minus"] = False
 
 logger = logging.getLogger(__name__)
+if CJK_FONT:
+    logger.debug("已选用中文字体：%s", CJK_FONT)
+else:
+    logger.warning("未找到任何中文字体，图表中文会显示为方框")
 
 OUTPUT_DIR = Path("output")
 
@@ -36,14 +80,25 @@ def _ensure_dir():
 
 
 def plot_daily_temperature(records: list[dict], city: str, days: int = 60) -> Path:
-    """近 N 天日均气温趋势折线图。"""
+    """近 N 天日均气温趋势折线图（单一城市）。
+
+    修复（2026-11-25）：原实现忘了按 ``city`` 过滤，把 13 个城市的记录
+    全画进了同一条折线 —— 同一天有 13 个点，图上是来回锯齿，
+    而且 ``tail(days)`` 取的是全表最后 N 行而不是该城最后 N 天。
+    """
     _ensure_dir()
     df = pd.DataFrame(records)
     if df.empty:
         logger.warning("无数据可绘图：%s", city)
         return OUTPUT_DIR / "temperature_trend.png"
+
+    df = df[df["city"] == city]
+    if df.empty:
+        logger.warning("无 %s 的数据可绘图", city)
+        return OUTPUT_DIR / "temperature_trend.png"
+
     df["date"] = pd.to_datetime(df["date"])
-    df = df.sort_values("date").tail(days)
+    df = df.sort_values("date").drop_duplicates("date", keep="last").tail(days)
 
     fig, ax = plt.subplots(figsize=(10, 4.5), dpi=130)
     ax.plot(df["date"], df["temp_avg"], color=CHART_STYLE["primary"],
@@ -55,6 +110,7 @@ def plot_daily_temperature(records: list[dict], city: str, days: int = 60) -> Pa
     ax.grid(alpha=0.3, linestyle="--")
     ax.legend(loc="upper left", framealpha=0.9)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+    ax.xaxis.set_major_locator(mdates.AutoDateLocator(minticks=4, maxticks=10))
     fig.tight_layout()
     path = OUTPUT_DIR / "temperature_trend.png"
     fig.savefig(path)
@@ -79,7 +135,8 @@ def plot_monthly_precipitation(records: list[dict], months: int = 6) -> Path:
               for v in monthly.values]
     bars = ax.bar(monthly.index, monthly.values, color=colors, width=0.6)
     ax.bar_label(bars, fmt="%.0f", padding=2, fontsize=9)
-    ax.set_title("全国 12 城近 %d 个月降水量汇总（毫米）" % len(monthly), fontsize=13, pad=12)
+    ax.set_title("全国 %d 城近 %d 个月降水量汇总（毫米）"
+                 % (len(CITIES), len(monthly)), fontsize=13, pad=12)
     ax.set_ylabel("降水量（mm）")
     ax.grid(axis="y", alpha=0.3, linestyle="--")
     fig.tight_layout()
