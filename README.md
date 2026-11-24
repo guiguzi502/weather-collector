@@ -1,6 +1,6 @@
 # 天气数据采集与可视化分析系统
 
-[![数据日期](https://img.shields.io/badge/数据日期-2026-11-24-1F4E79)](https://github.com/guiguzi502/weather-collector/actions)  [![运行于](https://img.shields.io/badge/运行于-2026-11-25-27AE60)](https://github.com/guiguzi502/weather-collector/actions)  [![记录数](https://img.shields.io/badge/记录数-1235-2E86AB)](https://github.com/guiguzi502/weather-collector)  [![CI](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml/badge.svg)](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml)
+[![数据日期](https://img.shields.io/badge/数据日期-2026-11-24-1F4E79)](https://github.com/guiguzi502/weather-collector/actions)  [![运行于](https://img.shields.io/badge/运行于-2026-11-24-27AE60)](https://github.com/guiguzi502/weather-collector/actions)  [![记录数](https://img.shields.io/badge/记录数-1235-2E86AB)](https://github.com/guiguzi502/weather-collector)  [![CI](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml/badge.svg)](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml)
 
 基于 Open-Meteo 免费开放 API 的端到端数据工程小项目：**采集 → 清洗 → 存储 → 可视化 → 每日自动更新**。
 
