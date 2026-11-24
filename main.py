@@ -90,7 +90,7 @@ def update_readme_badge(records: list, summary: dict) -> None:
                 lines.insert(i + 1, "")
                 lines.insert(i + 2, badge_line)
                 break
-    readme.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    sync.write_text_lf(readme, "\n".join(lines) + "\n")
     logger.info("README 徽章已更新：数据 %s（滞后 %d 天）/ 运行于 %s / %s 条",
                 latest, lag_days, run_day, total)
 
@@ -132,7 +132,7 @@ def update_duel_stats(records: list, city_a: str = "长沙",
     if not replaced:
         lines.append("")
         lines.append(line)
-    readme.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    sync.write_text_lf(readme, "\n".join(lines) + "\n")
     logger.info("README 双城统计已更新：%s", line)
 
 

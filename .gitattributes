@@ -1,15 +1,32 @@
 # 默认按内容自动判断，文本文件统一 LF
 * text=auto eol=lf
 
-# shell 脚本必须是 LF，否则 Linux CI 上 bash 会报 bad interpreter
+# 源码与数据：强制 LF
+# （Windows 本地开发 + Linux CI 双端生成产物，CRLF 会让逐字节比对误报）
 *.sh            text eol=lf
 *.yml           text eol=lf
 *.yaml          text eol=lf
 *.py            text eol=lf
+*.md            text eol=lf
+*.txt           text eol=lf
+*.svg           text eol=lf
+*.html          text eol=lf
+*.json          text eol=lf
+*.css           text eol=lf
+*.js            text eol=lf
 
 # 二进制文件绝不做换行转换（否则 SQLite / PNG 会被损坏）
 *.db            binary
+*.sqlite        binary
 *.png           binary
 *.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.webp          binary
 *.ico           binary
 *.zip           binary
+*.woff          binary
+*.woff2         binary
+*.ttf           binary
+*.ttc           binary
+*.otf           binary

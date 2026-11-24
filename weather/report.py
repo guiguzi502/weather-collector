@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import CITIES
+from weather.sync import write_text_lf
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +168,7 @@ def _write_native_svg(today: pd.DataFrame, latest: str,
   {''.join(parts)}
 </svg>'''
     path = OUTPUT_DIR / "weather_card.svg"
-    path.write_text(svg, encoding="utf-8")
+    write_text_lf(path, svg)
     logger.info("SVG 天气卡已生成：%s", path)
     return path
 
@@ -244,7 +245,7 @@ def make_duel_dressing_card(records: list[dict],
   {summary_line}
 </svg>'''
     path = OUTPUT_DIR / "duel_dressing.svg"
-    path.write_text(svg, encoding="utf-8")
+    write_text_lf(path, svg)
     # 同步到 docs/ 由 weather/sync.py 统一处理
     logger.info("双城穿衣对比卡已生成：%s", path)
     return path
@@ -421,6 +422,6 @@ def make_html_report(records: list[dict]) -> Path:
         return OUTPUT_DIR / "weather_report.html"
 
     path = OUTPUT_DIR / "weather_report.html"
-    path.write_text(html, encoding="utf-8")
+    write_text_lf(path, html)
     logger.info("HTML 报告已生成：%s（%d 城 / %d 条）", path, city_count, len(df))
     return path

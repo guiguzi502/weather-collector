@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from weather.sync import write_text_lf
+
 logger = logging.getLogger(__name__)
 
 OUTPUT_DIR = Path("output")
@@ -162,6 +164,6 @@ def make_annual_report(records: list[dict]) -> Path:
   {''.join(parts)}
 </svg>'''
     path = OUTPUT_DIR / "annual_report.svg"
-    path.write_text(svg, encoding="utf-8")
+    write_text_lf(path, svg)
     logger.info("年度天气账单已生成：%s（%d 行高）", path, height)
     return path

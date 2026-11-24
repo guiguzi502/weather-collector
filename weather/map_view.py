@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from weather.sync import write_text_lf
+
 logger = logging.getLogger(__name__)
 
 OUTPUT_DIR = Path("output")
@@ -173,7 +175,7 @@ window.addEventListener("resize", () => chart.resize());
 </script>
 </body></html>"""
     path = OUTPUT_DIR / "weather_map.html"
-    path.write_text(html_doc, encoding="utf-8")
+    write_text_lf(path, html_doc)
     # 同步到 docs/ 由 weather/sync.py 统一处理（geoJSON 来源 docs/china.json 保持不变）
     logger.info("全国天气地图已生成：%s", path)
     return path

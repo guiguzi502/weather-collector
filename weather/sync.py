@@ -39,6 +39,26 @@ SYNC_FILES = (
 )
 
 
+def write_text_lf(path: Path | str, text: str) -> Path:
+    """写文本文件，强制 LF 换行。
+
+    为什么要自己开文件（2026-11-25）：
+        ``Path.write_text`` 在 Python 3.9 上没有 ``newline`` 参数，
+        默认会把 ``\\n`` 翻成 Windows 的 ``\\r\\n``。于是同一份 SVG
+        在本地生成是 CRLF、在 Linux CI 生成是 LF —— 换行符不同，
+        字节就不同，``verify_readme.py`` 的逐字节比对会误判，
+        git 也会一直报 "CRLF will be replaced by LF"。
+        显式指定 ``newline="\\n"`` 后，两边产物完全一致。
+
+        路径里的父目录会自动创建，调用方不用先 mkdir。
+    """
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
+    return p
+
+
 def sync_docs(output_dir: Path | str = OUTPUT_DIR,
               docs_dir: Path | str = DOCS_DIR) -> list[str]:
     """把 output/ 里 README 需要的产物镜像到 docs/。
