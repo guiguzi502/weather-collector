@@ -28,6 +28,8 @@ from datetime import date, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from weather import clock
+
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(message)s",
                     datefmt="%H:%M:%S")
@@ -46,7 +48,8 @@ def query_weather(city: str, days: int | None = None,
                   start: str | None = None, end: str | None = None) -> list[dict]:
     """查询天气记录，按参数过滤。"""
     if not start:
-        end = end or date.today().isoformat()
+        # 按北京时间算「今天」：CI / 云端服务器常是 UTC（2026-11-25 修复）
+        end = end or clock.iso_today()
         days = days or 30
         start = (date.fromisoformat(end) - timedelta(days=days - 1)).isoformat()
     conn = _connect()

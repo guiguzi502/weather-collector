@@ -238,3 +238,54 @@ class TestCityCount:
                 if "12 城" in line or "12城" in line:
                     offenders.append("%s:%d" % (py.name, i))
         assert not offenders, "仍有硬编码 12 城：%s" % offenders
+
+
+# ------------------------------------------------ 业务时区
+class TestClock:
+    """CI runner 是 UTC，date.today() 在北京 00:00–08:00 之间会算成前一天。
+
+    2026-11-25 00:27（北京）手动 dispatch 那次，徽章写成「运行于 11-24」，
+    就是这个问题。所有业务日期必须显式按 Asia/Shanghai 计算。
+    """
+
+    def test_now_is_utc_plus_8(self):
+        from weather import clock
+        n = clock.now()
+        assert n.utcoffset() is not None
+        assert n.utcoffset().total_seconds() == 8 * 3600
+
+    def test_today_matches_beijing_date(self):
+        from datetime import datetime, timedelta, timezone
+        from weather import clock
+        beijing = datetime.now(timezone(timedelta(hours=8))).date()
+        assert clock.today() == beijing
+
+    def test_yesterday_is_today_minus_one(self):
+        from datetime import timedelta
+        from weather import clock
+        assert clock.yesterday() == clock.today() - timedelta(days=1)
+
+    def test_iso_helpers(self):
+        from weather import clock
+        assert clock.iso_today() == clock.today().isoformat()
+        assert clock.iso_yesterday() == clock.yesterday().isoformat()
+
+    def test_tz_fallback_when_zoneinfo_missing(self):
+        """Windows 无 tzdata 时应退回固定 +08:00，而不是抛异常。"""
+        from datetime import datetime
+        from weather import clock
+        off = datetime.now(clock._tz()).utcoffset()
+        assert off is not None and off.total_seconds() == 8 * 3600
+
+    def test_entry_points_have_no_local_date_today(self):
+        """入口脚本不能再用本地 date.today()，否则 CI 上又会差一天。"""
+        root = Path(__file__).resolve().parents[1]
+        offenders = []
+        for name in ("main.py", "api_server.py", "star_milestone.py"):
+            path = root / name
+            for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if line.strip().startswith("#"):
+                    continue
+                if "date.today()" in line or "datetime.now()" in line:
+                    offenders.append("%s:%d" % (name, i))
+        assert not offenders, "仍有本地时区调用：%s" % offenders

@@ -17,7 +17,7 @@ import pandas as pd
 
 from config import CITIES, BACKFILL_DAYS
 from weather import (collector, cleaner, storage, visualize, report,
-                     annual, map_view, sync, gaps)
+                     annual, map_view, sync, gaps, clock)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,11 +57,13 @@ def update_readme_badge(records: list, summary: dict) -> None:
     df = pd.DataFrame(records)
     latest = str(df["date"].max())[:10] if not df.empty else "—"
     total = summary.get("total", 0)
-    run_day = date.today().isoformat()
+    # 按北京时间取「今天」：CI runner 是 UTC，直接 date.today() 在
+    # 北京 00:00–08:00 之间会算成前一天（2026-11-25 修复）
+    run_day = clock.iso_today()
     # 数据日期与今天相差的天数，用于说明归档延迟
     lag_days = 0
     try:
-        lag_days = (date.today() - date.fromisoformat(latest)).days
+        lag_days = (clock.today() - date.fromisoformat(latest)).days
     except (ValueError, TypeError):
         pass
 
@@ -153,7 +155,7 @@ def collect_with_backfill(cities: list[str], days: int,
     Returns:
         ``(本轮采集到的记录, 补采区间描述列表)``
     """
-    end = date.today() - timedelta(days=1)      # archive API 只提供已归档完整日
+    end = clock.yesterday()      # archive API 只提供已归档完整日
     win_start = end - timedelta(days=days - 1)
 
     # 回补窗口与采集窗口取并集：正常日只会检查/请求最近一天
@@ -195,7 +197,7 @@ def main():
     db = storage.Storage()
     try:
         if args.no_backfill:
-            end = date.today() - timedelta(days=1)
+            end = clock.yesterday()
             start = end - timedelta(days=args.days - 1)
             logger.info("缺口回补已关闭，直接采集 %s ~ %s",
                         start.isoformat(), end.isoformat())
@@ -227,7 +229,7 @@ def main():
 
         # 覆盖度自检：最近 BACKFILL_DAYS 天缺任何一个城市都记 WARNING，
         # 让「CI 绿了但数据有洞」这种情况在日志里看得见，而不是静默通过。
-        end = date.today() - timedelta(days=1)
+        end = clock.yesterday()
         check_start = end - timedelta(days=args.backfill_days - 1)
         recent_days = [r["date"] for r in full
                        if check_start.isoformat() <= r["date"] <= end.isoformat()]

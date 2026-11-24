@@ -11,6 +11,9 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
+from weather import clock
+from weather.sync import write_text_lf
+
 REPO = "guiguzi502/weather-collector"
 MILESTONES = [10, 50, 100, 500, 1000]
 FILE = Path("docs/star_milestones.md")
@@ -63,13 +66,14 @@ def main() -> int:
     else:
         text = HEADER
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    # 里程碑时间按北京时间记录（CI runner 是 UTC，直接 datetime.now() 会差 8 小时）
+    now = clock.now().strftime("%Y-%m-%d %H:%M")
     for m in sorted(reached):
         row = f"| {m} ⭐ | {now} | {stars} |\n"
         text += row
         print(f"记录里程碑: {m} ⭐（当时 {stars}）")
 
-    FILE.write_text(text, encoding="utf-8")
+    write_text_lf(FILE, text)
     return 0
 
 

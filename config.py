@@ -34,6 +34,14 @@ RETRY_BACKOFF = 2.0  # 指数退避基数（秒）
 # 必须 > 1，否则单城失败就是永久缺口（2026-11-23 杭州/南京事件）。
 BACKFILL_DAYS = 7
 
+# 业务时区。
+#
+# 2026-11-25 修复：GitHub Actions runner 是 UTC，``date.today()`` 拿到的是
+# UTC 日期。08:00（北京时间）那次运行对应 UTC 00:00 同一天，看不出问题；
+# 但手动 dispatch 在深夜触发时，UTC 还是前一天 —— 徽章会写成「运行于
+# 昨天」，看起来像自动化没跑。所有业务日期统一按北京时间计算。
+TIMEZONE = "Asia/Shanghai"
+
 # 图表样式
 CHART_STYLE = {
     "primary": "#1F4E79",
