@@ -406,7 +406,13 @@ class TestAPIServer:
             api_server.DB_PATH = orig_db
 
     def _get(self, url):
-        with urllib.request.urlopen(url, timeout=5) as resp:
+        # 2026-11-25 修复：环境里有 HTTP_PROXY/HTTPS_PROXY 时（开发机常挂
+        # 代理），urllib 会把 127.0.0.1 的请求也送进代理，代理再转发到
+        # 自己的 127.0.0.1 —— 拿不到测试服务器，表现为
+        # 「单独跑全过，一挂代理就 4 个全红」。
+        # 显式用空 ProxyHandler 直连，与本机代理环境解耦。
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(url, timeout=5) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
     def test_health(self, api):
