@@ -1,6 +1,6 @@
 # 天气数据采集与可视化分析系统
 
-[![数据日期](https://img.shields.io/badge/数据日期-2026-11-26-1F4E79)](https://github.com/guiguzi502/weather-collector/actions)  [![运行于](https://img.shields.io/badge/运行于-2026-11-27-27AE60)](https://github.com/guiguzi502/weather-collector/actions)  [![记录数](https://img.shields.io/badge/记录数-1261-2E86AB)](https://github.com/guiguzi502/weather-collector)  [![CI](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml/badge.svg)](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml)
+[![数据日期](https://img.shields.io/badge/数据日期-2026-11-27-1F4E79)](https://github.com/guiguzi502/weather-collector/actions)  [![运行于](https://img.shields.io/badge/运行于-2026-11-28-27AE60)](https://github.com/guiguzi502/weather-collector/actions)  [![记录数](https://img.shields.io/badge/记录数-1273-2E86AB)](https://github.com/guiguzi502/weather-collector)  [![CI](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml/badge.svg)](https://github.com/guiguzi502/weather-collector/actions/workflows/daily.yml)
 
 基于 Open-Meteo 免费开放 API 的端到端数据工程小项目：**采集 → 清洗 → 存储 → 可视化 → 每日自动更新**。
 
@@ -24,7 +24,7 @@
 
 ![长沙vs太原](docs/city_duel.png)
 
-> 近 60 天：长沙均温 17.7°C / 降水 298mm｜太原均温 9.2°C / 降水 74mm
+> 近 60 天：长沙均温 17.4°C / 降水 297mm｜太原均温 8.9°C / 降水 74mm
 
 ## 🖥 交互式可视化报告
 
